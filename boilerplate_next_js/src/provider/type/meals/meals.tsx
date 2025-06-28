@@ -3,6 +3,8 @@ export interface Meal {
   strMeal: string;
   strInstructions: string;
   strMealThumb: string;
+  strArea: string;
+  strCategory: string;
 }
 
 export interface MealsState {
