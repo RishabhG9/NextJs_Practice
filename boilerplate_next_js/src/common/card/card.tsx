@@ -16,7 +16,7 @@ export const CustomCard: React.FC<CardProps> = ({
 }) => {
   return (
     <Link href={href}>
-      <div className="cursor-pointer rounded-md w-[250px] bg-white m-[0.5rem]">
+      <div className="cursor-pointer rounded-md w-[250px] bg-white m-[5rem] ">
         <div className="py-[5px] text-red-400 text-base text-center font-bold ">
           <h2>{heading}</h2>
         </div>

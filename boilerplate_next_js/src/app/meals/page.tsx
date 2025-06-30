@@ -2,7 +2,7 @@
 
 import { AppDispatch } from "@/store";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 
 import { fetchMeals } from "@/provider/action/meals/meals";
@@ -29,15 +29,23 @@ export default function MealsPage() {
   const error = useSelector(selectError);
 
   const [selected, setSelected] = useState<string[]>([]);
+  const [itemsToShow, setItemsToShow] = useState<number>(20);
   const [dropDownM, setDropDownMeals] = useState<any[]>([]);
-  // const [filteredMeal, setFilteredMeal] = useState<any[]>(meals)
   const [sortedOrder, setSortedOrder] = useState<String>("asc")
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [finalMeals, setFinalMeals] = useState<any[]>(meals)
+
+  const loaderRef = useRef<HTMLDivElement | null>(null);
 
   const handleCheckedChange = (item: string, checked: boolean) => {
     setSelected((prev) =>
       checked ? [...prev, item] : prev.filter((i) => i !== item)
     );
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("E.target.value", e.target.value)
+    setSearchTerm(e.target.value);
   };
 
   useEffect(() => {
@@ -54,19 +62,54 @@ export default function MealsPage() {
   }, [meals])
 
   useEffect(() => {
-    let filtered =
-      selected.length === 0
-        ? meals
-        : meals.filter((item) => selected.includes(item.strCategory))
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          // load next chunk
+          setItemsToShow((prev) => prev + 20);
+        }
+      },
+      {
+        root: null,
+        rootMargin: "0px",
+        threshold: 1.0,
+      }
+    );
+    if (loaderRef.current) {
+      observer.observe(loaderRef.current);
+    }
+    return () => {
+      if (loaderRef.current) {
+        observer.unobserve(loaderRef.current);
+      }
+    };
+  }, [loaderRef]);
 
-    let sorted = [...filtered].sort((a, b): any => {
-      return sortedOrder == 'asc'
-        ? a.strMeal.localeCompare(b.strMeal)
-        : b.strMeal.localeCompare(a.strMeal)
-    })
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      let filtered =
+        selected.length === 0
+          ? meals
+          : meals.filter((item) => selected.includes(item.strCategory))
 
-    setFinalMeals(sorted);
-  }, [meals, selected, sortedOrder])
+      // apply search
+      if (searchTerm.trim() !== "") {
+        console.log("INSIDE APPLY SEARCH")
+        filtered = filtered.filter(item =>
+          item.strMeal.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      }
+      let sorted = [...filtered].sort((a, b): any => {
+        return sortedOrder == 'asc'
+          ? a.strMeal.localeCompare(b.strMeal)
+          : b.strMeal.localeCompare(a.strMeal)
+      })
+
+      setFinalMeals(sorted);
+    }, 300);
+
+    return () => clearTimeout(debounceTimer)
+  }, [meals, searchTerm, selected, sortedOrder])
 
 
   useEffect(() => {
@@ -82,7 +125,16 @@ export default function MealsPage() {
 
   return (
     <div className="w-[100%] m-auto text-center text-xl">
-      <h1>Meals</h1>
+      <div className="w-[90%] m-auto flex justify-between">
+        <h1>Meals</h1>
+        <input
+          type="text"
+          placeholder="Search meal by name..."
+          value={searchTerm}
+          onChange={handleSearchChange}
+          className="border p-2 m-2 rounded"
+        />
+      </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button>Select Numbers</Button>
@@ -115,8 +167,9 @@ export default function MealsPage() {
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-      <div className="flex flex-wrap p-[1rem]">
+      <div className="flex flex-wrap p-[5rem]">
         {finalMeals.map((meal: Meal) => (
+        // {finalMeals.slice(0, itemsToShow).map((meal: Meal) => (
           <CustomCard
             heading={meal?.strMeal}
             image={meal?.strMealThumb}
@@ -124,6 +177,9 @@ export default function MealsPage() {
             href={ROUTES.getMealDetail(meal?.idMeal)}
           />
         ))}
+        <div ref={loaderRef} className="h-10 bg-transparent">
+          {/* sentinel for infinite loading */}
+        </div>
       </div>
     </div>
   );
